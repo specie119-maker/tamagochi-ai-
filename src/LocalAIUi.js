@@ -198,14 +198,18 @@
     /* ── 🎒 배운 것 보기 — RAG 재료를 눈으로 확인·삭제 ── */
     function openNotesList() {
         const backToAi = () => App.handlers.open_ai_menu();
-        if (!LocalAI.teachNotes.length) { petSay('아직 배운 게 없어요! 📚 가르치기로 먼저 알려주세요.', 5000); return; }
+        const listItems = (LocalAI.teachNotes && LocalAI.teachNotes.length) 
+            ? LocalAI.teachNotes 
+            : (LocalAI.notes || []).map((t, idx) => ({ id: Date.now() + idx, text: t }));
+
+        if (!listItems.length) { petSay('아직 배운 게 없어요! 📚 가르치기로 먼저 알려주세요.', 5000); return; }
         App.displayList([
             {
                 name: '💾 기억 백업 (JSON 다운로드)',
                 onclick: () => { LocalAI.exportMemory(); return false; }
             },
-            { type: 'text', name: `<small>📓 주인이 가르쳐준 기억 노트 <b>${LocalAI.teachNotes.length}개</b> (누르면 삭제)</small>` },
-            ...LocalAI.teachNotes.map((item, i) => ({
+            { type: 'text', name: `<small>📓 주인이 가르쳐준 기억 노트 <b>${listItems.length}개</b> (누르면 삭제)</small>` },
+            ...listItems.map((item, i) => ({
                 name: `${i + 1}. ${item.text}`,
                 onclick: () => {
                     App.displayConfirm(`이 기억을 삭제할까요?<br><small>"${item.text}"</small>`, [

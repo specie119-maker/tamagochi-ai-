@@ -35,12 +35,6 @@ const LocalAI = {
     /* ── 저장 ── */
     load() {
         try {
-            const rawNotes = localStorage.getItem('dama_teach_notes');
-            if (rawNotes) {
-                this.teachNotes = JSON.parse(rawNotes) || [];
-            } else {
-                this.teachNotes = [];
-            }
             const raw = localStorage.getItem('localai-brain');
             if (raw) {
                 const d = JSON.parse(raw);
@@ -51,9 +45,28 @@ const LocalAI = {
                 if (this.persona && this.persona.includes('사회복지')) {
                     this.persona = '';
                 }
+            } else {
+                this.notes = [];
+                this.brain = [];
+                this.ragOn = true;
             }
+
+            const rawNotes = localStorage.getItem('dama_teach_notes');
+            if (rawNotes) {
+                const parsed = JSON.parse(rawNotes) || [];
+                this.teachNotes = parsed.map((item, idx) => {
+                    if (typeof item === 'string') return { id: Date.now() + idx, text: item };
+                    return item;
+                });
+            } else {
+                this.teachNotes = (this.notes || []).map((t, idx) => ({ id: Date.now() + idx, text: t }));
+                if (this.teachNotes.length) this.saveTeachNotes();
+            }
+
+            // Sync notes string array with teachNotes object array
+            this.notes = this.teachNotes.map(n => n.text);
             this.apiKey = localStorage.getItem('localai-key') || '';
-        } catch (e) { this.teachNotes = []; }
+        } catch (e) { this.teachNotes = []; this.notes = []; }
     },
     saveTeachNotes() {
         try {
