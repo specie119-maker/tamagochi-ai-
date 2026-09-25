@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다마AI 모델 분석 및 개선 보고서</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.7;
+            color: #2d3748;
+            background-color: #f7fafc;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 880px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 45px 55px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+        h1 {
+            color: #1a202c;
+            border-bottom: 3px solid #48bb78;
+            padding-bottom: 12px;
+            font-size: 2rem;
+            margin-top: 0;
+        }
+        h2 {
+            color: #2b6cb0;
+            margin-top: 35px;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 8px;
+            font-size: 1.4rem;
+        }
+        h3 {
+            color: #2d3748;
+            margin-top: 25px;
+            font-size: 1.15rem;
+        }
+        code {
+            background: #edf2f7;
+            color: #c53030;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #1a202c;
+            color: #f7fafc;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9em;
+        }
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        blockquote {
+            background: #f0fff4;
+            border-left: 4px solid #38a169;
+            margin: 20px 0;
+            padding: 12px 20px;
+            color: #22543d;
+            border-radius: 0 8px 8px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            text-align: left;
+        }
+        th {
+            background-color: #edf2f7;
+            color: #2d3748;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        .badge-success { background: #c6f6d5; color: #22543d; }
+        .badge-danger { background: #fed7d7; color: #742a2a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1>📊 다마AI (Tamagochi AI) 모델 응답 오염 분석 및 개선 보고서</h1>
+<p><strong>작성일시</strong>: 2026년 9월 25일  <br><strong>대상 시스템</strong>: 다마고치 AI 웹 애플리케이션 & LM Studio (<code>127.0.0.1:1234</code>)  <br><strong>주요 과제</strong>: <code>1+1</code> 등 무관한 질문에 "사회복지 30년 / 인공지능 연구" 고정 문장이 답변되는 현상 분석 및 해결</p>
+<hr>
+<h2>1. 개요 및 핵심 요약</h2>
+<p>다마고치 AI 앱에서 사용자가 <code>1+1은 뭐야?</code> 또는 <code>공을 잡으려면 어떻게 해야 해?</code> 같은 질문을 했을 때, 질문 내용과 상관없이 다음과 같은 특정 문장이 강제로 결합되어 출력되는 현상이 발생했습니다.</p>
+<blockquote><strong>실제 출력된 오답 예시</strong>:  </blockquote>
+<blockquote><em>"1+1은 로컬 AI와 온디바이스 인공지능 기술을 열정적으로 공부하고 탐구하는 여성입니다."</em>  </blockquote>
+<blockquote><em>"1+1은 사회복지 현장에서 30년 넘게 헌신하며..."</em></blockquote>
+<p>이 보고서는 해당 현상의 근본 원인을 실측 데이터로 검증하고, <strong>왜 모델 선택 로직을 개선했는지</strong>와 <strong>향후 올바른 파인튜닝 방향</strong>을 상세히 정리합니다.</p>
+<hr>
+<h2>2. 근본 원인 분석 (Root Cause Analysis)</h2>
+<h3>2.1. 파인튜닝 데이터의 과적합 (Overfitting & Completion Bias)</h3>
+터미널을 통해 LM Studio의 <code>dama-aibrain</code> 모델에 시스템 프롬프트를 전혀 주지 않고 순수 API 요청을 보낸 실측 결과입니다:
+<pre><code>curl http://127.0.0.1:1234/v1/chat/completions   -d &#x27;{&quot;model&quot;: &quot;dama-aibrain&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;1+1은 뭐야?&quot;}]}&#x27;</code></pre>
+<p><strong>실측 응답</strong>:<br><pre><code>{<br>  &quot;choices&quot;: [<br>    {<br>      &quot;message&quot;: {<br>        &quot;content&quot;: &quot;1+1은 로컬 AI와 온디바이스 인공지능 기술을 열정적으로 공부하고 탐구하는 여성입니다.&quot;<br>      }<br>    }<br>  ]<br>}</code></pre></p>
+<p>* <strong>결론</strong>: 프롬프트 오염이나 브라우저 메모리 문제가 아니라, <strong><code>dama-aibrain</code> 모델 가중치 자체에 특정 문장이 과적합</strong>된 상태입니다.<br>* <strong>원인</strong>: 파인튜닝 시 질문-답변(Instruction-Response) 쌍이 아닌 단일 지식 텍스트(Raw Text Completion) 데이터로 학습되면서, 모델이 <code>[입력값]은/는 ...</code> 패턴을 만나면 무조건 해당 고정 문장으로 완성(Completion)하도록 굳어졌습니다.</p>
+<h3>2.2. 기존 웹앱 모델 선택 로직의 한계</h3>
+기존 <code>LocalAI.js</code> 코드에는 모델 이름에 <code>dama-</code>가 들어가면 무조건 최우선 연결하는 로직이 작성되어 있었습니다:
+<pre><code>isMyBrain(id) {
+    const low = String(id).toLowerCase();
+    if (/^dama[-_.]/.test(low) || low === &#x27;dama&#x27;) return true; // dama-aibrain 강제 선택
+}</code></pre>
+이로 인해 LM Studio에 다른 정상적인 모델이 로드되어 있어도, 과적합된 <code>dama-aibrain</code>만 계속 선택되어 정상적인 대화가 불가능했습니다.
+<hr>
+<h2>3. 모델 변경 및 로직 개선 이유</h2>
+<p>사용자가 요구한 <strong>"신체 감각을 배우는 아기 로봇 다마"</strong>로서 정상적인 덧셈(<code>1+1=2</code>), 논리 판단(<code>집게 손 닫기</code>), 일상 대화를 가능하게 만들기 위해 다음과 같은 조치를 취했습니다:</p>
+<h3>3.1. 스마트 기본 모델 우선 연결 (<code>qwen2.5-7b-instruct</code>)</h3>
+LM Studio에 로드된 모델 중 지시 이행 능력이 검증된 <code>qwen2.5-7b-instruct</code> 모델을 기본 추천 모델로 설정했습니다.
+<p><strong>실측 비교 결과</strong>:<br>| 질문 | <code>dama-aibrain</code> (과적합) | <code>qwen2.5-7b-instruct</code> (개선 후) |<br>| :--- | :--- | :--- |<br>| <strong><code>1+1은 뭐야?</code></strong> | <em>"1+1은 로컬 AI와 기술을 열정적으로 공부하는 여성입니다."</em> | <strong><code>"1+1은 2입니다! 가장 기본적인 덧셈 문제입니다."</code></strong> |<br>| <strong><code>공을 잡으려면 어떻게 해?</code></strong> | <em>"공을 잡으려면은 음악과 노래 창작을 통해..."</em> | <strong><code>"집게손을 뻗어 공을 살며시 잡아줘요 (~(^^)/)"</code></strong> |<br>| <strong><code>오늘 기분이 어때?</code></strong> | <em>"다마라는 배움에 대한 열정이 넘쳐..."</em> | <strong><code>"오늘은 행복한 날이에요! 배우는 게 재미있어요!"</code></strong> |</p>
+<h3>3.2. 게임 내 <code>🤖 두뇌 모델 변경</code> 선택 기능 신설</h3>
+사용자가 직접 파인튜닝한 <code>dama-aibrain</code>을 버리지 않고 계속 테스트할 수 있도록, 다마고치 AI 메뉴(🧠)에 <strong><code>🤖 두뇌 모델 변경</code></strong> 기능을 추가했습니다.
+<p>* 언제든지 게임 안에서 원클릭으로 <code>qwen2.5-7b-instruct</code> ↔ <code>dama-aibrain</code> 간 전환이 가능합니다.<br>* 사용자가 선택한 모델은 <code>localStorage</code>에 자동 저장되어 다음 접속 시에도 유지됩니다.</p>
+<hr>
+<h2>4. 향후 파인튜닝(LoRA) 데이터 재구성 가이드</h2>
+<p><code>dama-aibrain</code>을 재학습시킬 때 답변 오염을 방지하기 위한 올바른 데이터셋 작성법입니다.</p>
+<h3>❌ 기존 방식 (텍스트 단순 나열 -> 과적합 발생)</h3>
+<pre><code>드보라는 30년 경력의 사회복지 전문가이자 인공지능 연구자입니다.</code></pre>
+<h3>✅ 개선 방식 (대화형 Instruction-Response JSONL 포맷)</h3>
+<pre><code>{&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;너는 누구니?&quot;}, {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;저는 주인의 귀여운 아기 로봇 다마예요!&quot;}]}
+{&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;1+1은 뭐야?&quot;}, {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;1+1은 2예요!&quot;}]}
+{&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;공을 잡을 때 집게는 어떻게 해?&quot;}, {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;집게를 닫아서 공을 꽉 잡아야 해요!&quot;}]}</code></pre>
+<hr>
+<h2>5. 최종 요약</h2>
+<p>1. <strong>모델 변경 이유</strong>: <code>dama-aibrain</code> 모델 가중치에 이전 파인튜닝 문장이 과적합되어 모든 질문에 고정 오답을 출력했기 때문에, 산수 및 아기 로봇 역할 수행이 가능한 <code>qwen2.5-7b-instruct</code> 모델을 기본 연결로 적용하였습니다.<br>2. <strong>사용자 제어권 보장</strong>: 게임 내 <code>🤖 두뇌 모델 변경</code> 옵션을 추가하여 언제든 직접 만든 모델과 범용 모델을 자유롭게 변경할 수 있도록 하였습니다.<br>3. <strong>코드 및 깃허브 배포</strong>: 관련 모든 변경 사항(<code>LocalAI.js</code>, <code>LocalAIUi.js</code>)은 깃허브 메인 저장소와 로컬 웹 서버에 전면 반영되었습니다.</p>
+    </div>
+</body>
+</html>
