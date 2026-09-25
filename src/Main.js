@@ -63,40 +63,47 @@ class AudioChannel {
 
     }
     async load(path){
-        const response = await fetch(path);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        this.audioBufferCache.set(path, audioBuffer);
-        return audioBuffer;
+        try {
+            const response = await fetch(path);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            this.audioBufferCache.set(path, audioBuffer);
+            return audioBuffer;
+        } catch(e) {
+            return null;
+        }
     }
     async play(path, force) {
         if (this.isBusy && !force) return;
-
-        const buffer = this.audioBufferCache.get(path) ?? await this.load(path);
-
-        if (force && this.currentSource) {
-            try {
-                this.currentSource.stop();
-            } catch (e) {}
-            this.currentSource.disconnect();
-        }
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(this.audioContext.destination);
-        source.start(0);
-
-        this.currentSource = source;
-        this.isBusy = true;
-
-        source.onended = () => {
-            this.isBusy = false;
-            this.currentSource = null;
-        };
+        try {
+            const buffer = this.audioBufferCache.get(path) ?? await this.load(path);
+            if (buffer) {
+                if (force && this.currentSource) {
+                    try { this.currentSource.stop(); } catch (e) {}
+                    this.currentSource.disconnect();
+                }
+                const source = this.audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.audioContext.destination);
+                source.start(0);
+                this.currentSource = source;
+                this.isBusy = true;
+                source.onended = () => {
+                    this.isBusy = false;
+                    this.currentSource = null;
+                };
+                return;
+            }
+        } catch(e) {}
+        try {
+            const a = new Audio(path);
+            a.play().catch(() => {});
+        } catch(e) {}
     }
 }
 
 function handleServiceWorker(){
+    if (location.protocol === "file:") return;
     const isOnItch = location.host.indexOf('itch') !== -1;
     if(!navigator?.serviceWorker || isOnItch) return;
     
