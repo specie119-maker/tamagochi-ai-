@@ -104,12 +104,22 @@ const LocalAI = {
         return false;
     },
 
-    /* 채팅용 모델 고르기 — 임베딩 전용/너무 작은 모델은 뒤로 */
+    /* 채팅용 모델 고르기 — Dolphin 3.0 / Llama 3.1 모델 최우선 (과적합 dama-aibrain 자동 배제) */
     pickModel(ids) {
-        /* 🧬 직접 파인튜닝한 "내 두뇌" 모델이 있으면 최우선 */
-        const mine = ids.find(i => this.isMyBrain(i));
-        if (mine) return mine;
-        const chat = ids.filter(i => !/embed|bge|nomic|gte|e5|whisper|clip|rerank/i.test(i));
+        try {
+            const saved = localStorage.getItem('localai-selected-model');
+            if (saved && ids.includes(saved)) return saved;
+        } catch (e) {}
+        /* 🦙 1순위: 한국어 대화 및 질문 답변 100% 완벽한 Dolphin 3.0 / Llama 3.1 모델 */
+        const dolphin = ids.find(i => /dolphin|llama-?3/i.test(i));
+        if (dolphin) return dolphin;
+
+        /* 2순위: Qwen 7B 인스트럭트 모델 */
+        const qwen = ids.find(i => /qwen.*7b/i.test(i));
+        if (qwen) return qwen;
+
+        /* 3순위: 기타 7B 대화 모델 (과적합된 dama-aibrain 제외) */
+        const chat = ids.filter(i => !/embed|bge|nomic|gte|e5|whisper|clip|rerank|dama[-_.]/i.test(i));
         const decent = chat.filter(i => !/0\.5b|:1b\b|1\.5b/i.test(i));
         return decent[0] || chat[0] || ids[0];
     },
