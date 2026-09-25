@@ -307,7 +307,6 @@
             : `⚪ 연결 안 됨<br><small>Ollama·LM Studio를 켜면 자동으로 연결돼요</small>`;
         const growth = (typeof AIGrowth !== 'undefined' && AIGrowth.progressLine()) || '';
         return App.displayList([
-            { type: 'text', name: `<small>${status}</small>` },
             {
                 name: '💬 대화하기',
                 onclick: () => {
@@ -349,6 +348,7 @@
                 name: '🔌 다시 연결해 보기',
                 onclick: () => { doConnect(); return false; }
             }]),
+            { type: 'text', name: `<small>${status}</small>` },
             ...(growth ? [{ type: 'text', name: `<small style="color:#3f9b7f">${growth}</small>` }] : []),
         ]);
     };

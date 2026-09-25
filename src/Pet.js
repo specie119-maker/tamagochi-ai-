@@ -441,7 +441,7 @@ class Pet extends Object2d {
 
         if(!this.eggObject){
             this.eggStartTime = Date.now();
-            this.hatchTime = this.eggStartTime + random(15000, 30000);
+            this.hatchTime = this.eggStartTime + 1500;
             this.eggObject = new Object2d({
                 img: getEggSpritesheet(),
                 spritesheet: {
@@ -473,17 +473,7 @@ class Pet extends Object2d {
         this.eggObject.x = 40 + (motion * 1.5);
         this.setLocalZBasedOnSelf(this.eggObject);
 
-        /* 🧠 다마AI: 두뇌(로컬 AI)를 연결해야 알이 깨어난다 — 첫 화면이 곧 첫 수업 */
-        const aiReady = typeof LocalAI !== 'undefined' && LocalAI.connected;
-        if(!aiReady){
-            this.hatchTime = Date.now() + 1000;
-            if(!this.nextEggHintTime || Date.now() > this.nextEggHintTime){
-                this.nextEggHintTime = Date.now() + 25000;
-                App.displayPopup(location.protocol === 'https:'
-                    ? '🥚 알 속에서 두뇌를 기다리고 있어요…<br><b>LM Studio</b>를 켜 주세요! 브라우저가 <b>로컬 연결 허용</b>을 물어보면 꼭 허용!<br><small>안 뜨면: 주소창 🔒 → 사이트 설정 → 로컬 네트워크 기기 허용</small>'
-                    : '🥚 알 속에서 두뇌를 기다리고 있어요…<br><b>LM Studio</b>를 켜면 저절로 깨어나요!<br><small>LM Studio → 개발자 탭 → 서버 시작 (CORS 켜기)<br>Ollama도 돼요: <b>OLLAMA_ORIGINS=* ollama serve</b></small>', 7000);
-            }
-        }
+        /* 🧠 다마AI: 알은 시작 1.5초 후 자동으로 깨어나며 게임이 시작됩니다 */
 
         if(Date.now() > this.hatchTime){
             this.stats.is_egg = false;
