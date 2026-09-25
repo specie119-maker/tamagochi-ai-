@@ -300,7 +300,12 @@
     }
 
     /* AIGrowth 등 다른 모듈도 같은 말풍선 큐를 쓰게 공개 — 겹침 방지의 단일 통로 */
-    App.handlers.dama_say = petSay;
+    function registerAppHandlers() {
+        if (typeof App !== 'undefined' && App.handlers) {
+            App.handlers.dama_say = petSay;
+            App.handlers.open_ai_menu = openAiMenu;
+        }
+    }
 
     /* ── 🤖 모델 목록 선택 ── */
     function openModelList() {
@@ -322,7 +327,7 @@
     }
 
     /* ── 🧠 AI 메뉴 (게임 네이티브) ── */
-    App.handlers.open_ai_menu = function () {
+    function openAiMenu() {
         const status = LocalAI.connected
             ? `🟢 <b>${LocalAI.serverName}</b> · ${LocalAI.model}<br><small>대화는 밖으로 나가지 않아요</small>`
             : `⚪ 연결 안 됨<br><small>Ollama·LM Studio를 켜면 자동으로 연결돼요</small>`;
@@ -379,7 +384,10 @@
     };
 
     /* ── 자동 연결: 시작할 때 + 연결될 때까지 15초마다 조용히 재시도 ── */
+    registerAppHandlers();
+    document.addEventListener('DOMContentLoaded', registerAppHandlers);
     window.addEventListener('load', () => {
+        registerAppHandlers();
         /* 🇰🇷 시간 표현 한국어화 — "3 days ago" → "3일 전", "August 10" → "8월 10일" */
         try {
             if (typeof moment !== 'undefined') {

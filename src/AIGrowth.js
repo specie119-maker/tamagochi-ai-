@@ -49,7 +49,7 @@ const AIGrowth = {
     reviveGrace() { this.lastChatAt = Date.now(); this.lastLonelyWarnAt = 0; this.save(); },
     lonelinessTick() {
         try {
-            if (!App?.pet || App.pet.stats.is_egg || App.pet.stats.is_dead) return;
+            if (typeof App === 'undefined' || !App?.pet || App.pet.stats.is_egg || App.pet.stats.is_dead) return;
             if (!this.lastChatAt) { this.lastChatAt = Date.now(); this.save(); return; } /* 첫 시작 유예 */
             const days = (Date.now() - this.lastChatAt) / 86400000;
             if (days >= this.LONELY.sleepDays) {
@@ -60,7 +60,7 @@ const AIGrowth = {
                 if (Date.now() - this.lastLonelyWarnAt > 86400000) {
                     this.lastLonelyWarnAt = Date.now(); this.save();
                     const leftDays = Math.max(1, this.LONELY.sleepDays - Math.floor(days));
-                    App.displayPopup(`⚠️ <b>${App.petDefinition.name}</b>… 벌써 <b>${Math.floor(days)}일째</b> 아무 말도 못 들었어요.<br><b>${leftDays}일</b> 더 지나면 외로움에 잠들어 버려요 💤`, 10000);
+                    App.displayPopup(`⚠️ <b>${(typeof App !== 'undefined' && App.petDefinition).name}</b>… 벌써 <b>${Math.floor(days)}일째</b> 아무 말도 못 들었어요.<br><b>${leftDays}일</b> 더 지나면 외로움에 잠들어 버려요 💤`, 10000);
                 }
                 return;
             }
@@ -74,7 +74,7 @@ const AIGrowth = {
     goal() {
         try {
             const LS = PetDefinition.LIFE_STAGE;
-            const stage = App.petDefinition?.getLifeStage?.();
+            const stage = (typeof App !== 'undefined' && App.petDefinition)?.getLifeStage?.();
             if (stage === LS.baby) return {
                 title: '어린이',
                 needs: [{ key: 'chat', n: 10, label: '💬 대화' }],
@@ -145,7 +145,7 @@ const AIGrowth = {
     /* ── 🧬 새기기 의식: 청소년만 가능. 파인튜닝의 원리를 몸으로 배우고 어른이 된다 ── */
     ritual() {
         try {
-            if (App.petDefinition?.getLifeStage?.() !== PetDefinition.LIFE_STAGE.teen) return false;
+            if ((typeof App !== 'undefined' && App.petDefinition)?.getLifeStage?.() !== PetDefinition.LIFE_STAGE.teen) return false;
         } catch (e) { return false; }
         this.evolve({
             title: '어른',
