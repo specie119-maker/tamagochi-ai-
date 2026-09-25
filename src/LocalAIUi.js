@@ -300,6 +300,25 @@
     /* AIGrowth 등 다른 모듈도 같은 말풍선 큐를 쓰게 공개 — 겹침 방지의 단일 통로 */
     App.handlers.dama_say = petSay;
 
+    /* ── 🤖 모델 목록 선택 ── */
+    function openModelList() {
+        const backToAi = () => App.handlers.open_ai_menu();
+        const models = (LocalAI.models || []).filter(i => !/embed|bge|nomic|gte|e5|whisper|clip|rerank/i.test(i));
+        if (!models.length) { petSay('선택할 수 있는 모델이 없어요!', 4000); return; }
+        App.displayList([
+            { type: 'text', name: '<small>사용할 AI 두뇌(모델)를 골라주세요</small>' },
+            ...models.map(m => ({
+                name: (m === LocalAI.model ? '✅ ' : '') + m,
+                onclick: () => {
+                    LocalAI.model = m;
+                    try { localStorage.setItem('localai-selected-model', m); } catch (e) {}
+                    App.handlers.open_ai_menu();
+                    petSay(`두뇌 모델이 변경되었어요! 🤖\n${m}`, 6000);
+                }
+            }))
+        ], backToAi);
+    }
+
     /* ── 🧠 AI 메뉴 (게임 네이티브) ── */
     App.handlers.open_ai_menu = function () {
         const status = LocalAI.connected
@@ -333,6 +352,10 @@
             {
                 name: `🗣️ 성격 정하기${LocalAI.persona ? ' ✏️' : ''}`,
                 onclick: () => { openPersonaPrompt(); return false; }
+            },
+            {
+                name: `🤖 두뇌 모델 변경 (${LocalAI.model || '선택'})`,
+                onclick: () => { openModelList(); return false; }
             },
             /* 🧬 새기기: 청소년만 (진화 의식이라 서사 게이트 유지) */
             ...(lifeStage() === PetDefinition.LIFE_STAGE.teen ? [{
