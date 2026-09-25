@@ -198,21 +198,23 @@
     /* ── 🎒 배운 것 보기 — RAG 재료를 눈으로 확인·삭제 ── */
     function openNotesList() {
         const backToAi = () => App.handlers.open_ai_menu();
-        if (!LocalAI.notes.length && !LocalAI.brain.length) { petSay('아직 배운 게 없어요! 📚 로 먼저 가르쳐 주세요.', 5000); return; }
+        if (!LocalAI.teachNotes.length) { petSay('아직 배운 게 없어요! 📚 가르치기로 먼저 알려주세요.', 5000); return; }
         App.displayList([
-            /* 🧬 새긴 지식은 지울 수 없다 — 가중치에 새긴 건 잊게 하기 어렵다는 것도 교육 */
-            ...(LocalAI.brain.length ? [{ type: 'text', name: `<small>🧬 몸에 새겨진 지식 <b>${LocalAI.brain.length}개</b> — 새긴 건 잊을 수 없어요</small>` }] : []),
-            { type: 'text', name: `<small>🎒 책가방 속 지식 <b>${LocalAI.notes.length}개</b> — 누르면 지울 수 있어요</small>` },
-            ...LocalAI.notes.map((n, i) => ({
-                name: n,
+            {
+                name: '💾 기억 백업 (JSON 다운로드)',
+                onclick: () => { LocalAI.exportMemory(); return false; }
+            },
+            { type: 'text', name: `<small>📓 주인이 가르쳐준 기억 노트 <b>${LocalAI.teachNotes.length}개</b> (누르면 삭제)</small>` },
+            ...LocalAI.teachNotes.map((item, i) => ({
+                name: `${i + 1}. ${item.text}`,
                 onclick: () => {
-                    App.displayConfirm(`이 지식을 잊게 할까요?<br><small>"${n}"</small>`, [
+                    App.displayConfirm(`이 기억을 삭제할까요?<br><small>"${item.text}"</small>`, [
                         {
-                            name: '잊기',
+                            name: '삭제',
                             onclick: () => {
-                                LocalAI.notes.splice(i, 1);
+                                LocalAI.deleteNote(item.id);
+                                LocalAI.notes = LocalAI.notes.filter(n => n !== item.text);
                                 LocalAI.save();
-                                if (!LocalAI.notes.length && LocalAI.ragOn) { LocalAI.ragOn = false; LocalAI.save(); }
                                 openNotesList();
                             }
                         },
@@ -346,7 +348,7 @@
                 onclick: (e) => { toggleRag(); e._mount(); return true; }
             },
             {
-                name: `🎒 배운 것 보기 (${LocalAI.notes.length}개)`,
+                name: `📓 공책 보기 (${LocalAI.teachNotes.length}개)`,
                 onclick: () => { openNotesList(); return false; }
             },
             {

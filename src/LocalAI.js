@@ -26,27 +26,39 @@ const LocalAI = {
     model: '',
     serverName: '',
     notes: [],            /* 사용자가 가르친 지식 (RAG 재료 = 🎒 책가방) */
+    teachNotes: [],       /* 📓 점진적 성장형 가르치기 메모리 [{ id: 1, text: "..." }] */
     brain: [],            /* 🧬 새겨진 지식 (파인튜닝 흉내) — 책가방 없이도 항상 안다 */
-    ragOn: false,         /* 🎒 책가방 = RAG 켜짐 */
+    ragOn: true,          /* 🎒 기본 켜짐 */
 
     apiKey: '',           /* 🔑 로컬 서버에 API 키를 걸어둔 경우 (LM Studio 설정·llama.cpp --api-key) */
 
     /* ── 저장 ── */
     load() {
         try {
+            const rawNotes = localStorage.getItem('dama_teach_notes');
+            if (rawNotes) {
+                this.teachNotes = JSON.parse(rawNotes) || [];
+            } else {
+                this.teachNotes = [];
+            }
             const raw = localStorage.getItem('localai-brain');
             if (raw) {
                 const d = JSON.parse(raw);
                 this.notes = d.notes || [];
                 this.brain = d.brain || [];
-                this.ragOn = !!d.ragOn;
+                this.ragOn = d.ragOn !== undefined ? !!d.ragOn : true;
                 this.persona = d.persona || '';
                 if (this.persona && this.persona.includes('사회복지')) {
                     this.persona = '';
                 }
             }
             this.apiKey = localStorage.getItem('localai-key') || '';
-        } catch (e) { /* 저장소 못 쓰면 메모리로만 */ }
+        } catch (e) { this.teachNotes = []; }
+    },
+    saveTeachNotes() {
+        try {
+            localStorage.setItem('dama_teach_notes', JSON.stringify(this.teachNotes));
+        } catch (e) {}
     },
     setKey(key) {
         this.apiKey = (key || '').trim();
@@ -130,13 +142,32 @@ const LocalAI = {
         return chat.length > 1 ? chat[(idx + 1) % chat.length] : '';
     },
 
-    /* ── 지식 가르치기 ── */
+    /* ── 지식 가르치기 (점진적 성장형 가르치기 메모리) ── */
     teach(text) {
         const t = (text || '').trim();
-        if (t.length < 2) return false;
+        if (t.length < 1) return false;
+        const newItem = { id: Date.now(), text: t };
+        this.teachNotes.push(newItem);
         this.notes.push(t);
+        this.saveTeachNotes();
         this.save();
-        return true;
+        return this.teachNotes.length;
+    },
+    /* 메모리 개별 삭제 */
+    deleteNote(id) {
+        this.teachNotes = this.teachNotes.filter(n => n.id !== id);
+        this.saveTeachNotes();
+    },
+    /* 메모리 JSON 백업 다운로드 */
+    exportMemory() {
+        const jsonStr = JSON.stringify(this.teachNotes, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dama_memory_backup_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     },
     /* 질문과 관련된 지식만 골라 준다 (아주 단순한 키워드 검색 = RAG의 핵심 아이디어) */
     recall(question, k = 5) {
@@ -163,16 +194,21 @@ const LocalAI = {
         const owner = (typeof App !== 'undefined' && App.userName)
             ? ` 주인의 이름은 "${App.userName}"이고, 주인을 이름으로 다정하게 부른다.`
             : '';
-        const sys =
-            `${this.persona || this.PERSONA}${petName ? ` 이름은 "${petName}".` : ''}${owner}\n` +
-            this.STYLE + '\n' +
-            (persona ? persona + '\n' : '') +
-            ((this.ragOn || this.brain.length) ? '' : '아직 아무것도 못 배워서 일반 상식으로만 답한다.') + engraved + rag +
-            /* 작은 모델은 뒤쪽 내용(배운 지식의 "~단다"·"기억해줘" 말투)에 끌려간다 —
-               맨 끝에서 성격 규칙을 한 번 더 못 박아 말투·화자 역전을 막는다 (수강생 실측 제보) */
-            '\n\n## 마지막 규칙 — 무엇보다 우선한다\n' +
-            '맨 위 성격 설정의 말투 규칙(존댓말/반말·호칭)을 모든 문장에서 지킨다. ' +
-            '"배운 것"과 "새겨진 지식"은 네가 아는 내용일 뿐이다 — 그 문장의 말투나 화자(예: "~해줘", "~단다")를 절대 따라 하지 말고, 항상 네 성격의 말투로 주인에게 말한다.';
+        const memoryListText = this.teachNotes.length
+            ? this.teachNotes.map((n, i) => `${i + 1}. ${n.text}`).join('\n')
+            : '(아직 주인이 가르쳐준 기억이 하나도 없습니다)';
+
+        const sys = `[당신의 정체성]
+- 너는 주인의 가르침을 받아 성장하는 아기 로봇 '다마'야.
+- 30년 사회복지 경력이나 AI 연구원 같은 이전 기억이나 전문 지식은 완전히 잊고, 오직 아래 [주인이 가르쳐준 기억 노트]에만 기반해서 대답해.
+
+[주인이 가르쳐준 기억 노트]
+${memoryListText}
+
+[답변 규칙]
+1. 기억 노트에 있는 내용이면 그에 맞추어 1~2문장의 귀여운 말투로 대답하세요.
+2. 아직 배우지 않은 질문을 받으면 엉뚱한 전문 지식을 지어내지 말고 "아직 안 배웠어요! 가르쳐주세요!"라고 솔직히 말하세요.
+3. 모든 답변은 100% 순수 한국어로만 작성하세요. 중국어(한자) 및 외국어는 절대로 사용하지 마세요.`;
 
         /* 실패 원인 분류 — UI가 정확한 처방을 말해줄 수 있게 (timeout / network / preflight / empty / http) */
         this.lastAskError = '';
